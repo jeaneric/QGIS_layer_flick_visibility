@@ -1,0 +1,16 @@
+[general]
+name=Layer Flick Visibility
+qgisMinimumVersion=3.0
+description=Cycle ("flick") visibility through the first-level layers and subgroups of a chosen group, on a timer.
+about=Pick a layer group and an interval, then press Play to step through each first-level child (layer or subgroup) one at a time, looping continuously. Includes Pause/Resume, manual Previous/Next stepping, and per-item include/exclude. Controls live in a dockable panel; launch it from the Plugins menu.
+version=0.1
+author=Jean-Eric Baribeau
+email=jean-eric.baribeau@aecom.com
+tracker=https://example.com/layer-flick-visibility/issues
+repository=https://example.com/layer-flick-visibility
+homepage=https://example.com/layer-flick-visibility
+tags=visibility,animation,layers,group,flick,timer,swipe
+category=Plugins
+icon=icon.png
+experimental=True
+deprecated=False
