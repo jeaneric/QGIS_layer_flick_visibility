@@ -61,3 +61,7 @@ Then in QGIS: **Plugins ▸ Manage and Install Plugins ▸ Installed** and enabl
 | `flick_group_widget.py` | One group's config block (group, items, timing) |
 | `flick_coordinator.py` | Single shared timer + tick-based sync across groups |
 | `flick_controller.py` | Per-group visibility state (UI-free, timer-free) |
+
+## License
+
+Released under the [MIT License](LICENSE).
