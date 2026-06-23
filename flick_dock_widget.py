@@ -83,12 +83,14 @@ class FlickDockWidget(QgsDockWidget):
     def _add_base_row(self):
         row = FlickGroupWidget(self.iface, is_base=True)
         row.config_changed.connect(self._refresh_headers)
+        row.group_pause_changed.connect(self._on_group_pause)
         self._insert_row(row)
         self.rows.append(row)
 
     def _add_synced_row(self):
         row = FlickGroupWidget(self.iface, is_base=False)
         row.config_changed.connect(self._refresh_headers)
+        row.group_pause_changed.connect(self._on_group_pause)
         row.remove_requested.connect(self._remove_row)
         self._insert_row(row)
         self.rows.append(row)
@@ -135,6 +137,9 @@ class FlickDockWidget(QgsDockWidget):
         elif self.coordinator.state == PAUSED:
             self.coordinator.resume()
 
+    def _on_group_pause(self, row, paused):
+        self.coordinator.set_group_paused(row.controller, paused)
+
     # ----------------------------------------------------------------- signals
     def _update_buttons(self, state):
         running = state == RUNNING
@@ -149,9 +154,11 @@ class FlickDockWidget(QgsDockWidget):
         self.add_btn.setEnabled(not active)
         self.pause_btn.setText("⏸ Pause" if running else "▶ Resume")
 
-        # Group editing is locked while a run is active.
+        # Group editing is locked while a run is active; per-group Pause is
+        # only usable while running/paused.
         for row in self.rows:
             row.set_editable(not active)
+            row.set_running_controls(active)
 
         if state == STOPPED:
             self.state_label.setText("Stopped.")

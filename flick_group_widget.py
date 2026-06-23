@@ -33,14 +33,17 @@ NODE_ROLE = Qt.UserRole + 1
 class FlickGroupWidget(QGroupBox):
     """Editable configuration for a single flicking group."""
 
-    remove_requested = pyqtSignal(object)   # emits self
-    config_changed = pyqtSignal()           # interval / multiplier / group changed
+    remove_requested = pyqtSignal(object)        # emits self
+    config_changed = pyqtSignal()                # interval / multiplier / group changed
+    group_pause_changed = pyqtSignal(object, bool)  # self, paused
 
     def __init__(self, iface, is_base, parent=None):
         super().__init__(parent)
         self.iface = iface
         self.is_base = is_base
         self.controller = FlickController(self)
+        self._paused = False
+        self._status_core = "—"
         self._build_ui()
         self._connect()
         self.populate_groups()
@@ -101,11 +104,17 @@ class FlickGroupWidget(QGroupBox):
             form.addRow("Speed (of base):", self.multiplier_spin)
         layout.addLayout(form)
 
-        # Per-row status + remove
+        # Per-row status + per-group pause + remove
         brow = QHBoxLayout()
         self.status_label = QLabel("—", self)  # em dash
         self.status_label.setWordWrap(True)
         brow.addWidget(self.status_label, 1)
+        self.group_pause_btn = QPushButton("⏸ This", self)
+        self.group_pause_btn.setToolTip(
+            "Pause just this group; the others keep running"
+        )
+        self.group_pause_btn.setEnabled(False)
+        brow.addWidget(self.group_pause_btn)
         if not self.is_base:
             self.remove_btn = QPushButton("✕ Remove", self)
             brow.addWidget(self.remove_btn)
@@ -116,6 +125,7 @@ class FlickGroupWidget(QGroupBox):
         self.group_combo.currentIndexChanged.connect(self._on_group_changed)
         self.check_all_btn.clicked.connect(lambda: self._set_all_checked(True))
         self.uncheck_all_btn.clicked.connect(lambda: self._set_all_checked(False))
+        self.group_pause_btn.clicked.connect(self._toggle_group_pause)
         if self.is_base:
             self.interval_spin.valueChanged.connect(
                 lambda _v: self.config_changed.emit()
@@ -232,8 +242,18 @@ class FlickGroupWidget(QGroupBox):
             self.multiplier_spin.setEnabled(editable)
             self.remove_btn.setEnabled(editable)
 
+    def set_running_controls(self, active):
+        """Per-group Pause is usable only while a run is active."""
+        self.group_pause_btn.setEnabled(active)
+        if not active and self._paused:
+            self._paused = False
+            self._update_pause_btn()
+
     def clear_status(self):
-        self.status_label.setText("—")
+        self._status_core = "—"
+        self._paused = False
+        self._update_pause_btn()
+        self._refresh_status()
 
     # ----------------------------------------------------------------- signals
     def _on_group_changed(self, _index):
@@ -241,4 +261,18 @@ class FlickGroupWidget(QGroupBox):
         self.config_changed.emit()
 
     def _on_current_changed(self, name, position, total):
-        self.status_label.setText("{} / {} — {}".format(position, total, name))
+        self._status_core = "{} / {} — {}".format(position, total, name)
+        self._refresh_status()
+
+    def _toggle_group_pause(self):
+        self._paused = not self._paused
+        self._update_pause_btn()
+        self._refresh_status()
+        self.group_pause_changed.emit(self, self._paused)
+
+    def _update_pause_btn(self):
+        self.group_pause_btn.setText("▶ This" if self._paused else "⏸ This")
+
+    def _refresh_status(self):
+        suffix = "   ⏸ paused" if self._paused else ""
+        self.status_label.setText(self._status_core + suffix)

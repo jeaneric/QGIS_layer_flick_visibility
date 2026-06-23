@@ -16,6 +16,8 @@ snapshots.
   a header with its effective interval and a **Remove** button to cancel it.
 - **Play / Pause / Resume / Stop** plus manual **◀ Previous / Next ▶** stepping,
   shared across all groups.
+- **Per-group pause**: each group has its own **⏸ This** button to freeze just
+  that group while the others keep flicking; press again to resume it in sync.
 - **Include / exclude** individual first-level items with checkboxes, so only a
   chosen subset participates in the loop.
 - Continuous looping; visibility is **left as-is** when stopped (non-prescriptive
@@ -53,7 +55,8 @@ Then in QGIS: **Plugins ▸ Manage and Install Plugins ▸ Installed** and enabl
    set its **Speed (× of base)** multiplier, and trim its items. The header shows
    the resulting interval. Use **✕ Remove** to cancel an added group.
 4. Press **▶ Play**. Use **⏸ Pause / ▶ Resume**, **◀ Prev / Next ▶**, and
-   **■ Stop** as needed — they drive all groups together.
+   **■ Stop** as needed — they drive all groups together. Each group's **⏸ This**
+   button freezes only that group while the rest keep running.
 
 ## Files
 
