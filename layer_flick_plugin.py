@@ -41,7 +41,7 @@ class LayerFlickPlugin:
     def unload(self):
         if self.dock is not None:
             try:
-                self.dock.controller.stop()
+                self.dock.coordinator.stop()
             except Exception:
                 pass
             self.iface.removeDockWidget(self.dock)

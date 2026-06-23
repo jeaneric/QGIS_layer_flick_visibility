@@ -9,8 +9,13 @@ snapshots.
 ## Features
 
 - Pick any group in the project (nested groups included).
-- Single interval (seconds) applied to every item.
-- **Play / Pause / Resume / Stop** plus manual **◀ Previous / Next ▶** stepping.
+- A **base** group sets the interval in seconds.
+- **Add synced groups**: each additional group flicks at a whole-number
+  **multiplier** of the base interval (e.g. ×2 = every other base step), so every
+  group stays perfectly in sync off a single shared clock. Each synced row shows
+  a header with its effective interval and a **Remove** button to cancel it.
+- **Play / Pause / Resume / Stop** plus manual **◀ Previous / Next ▶** stepping,
+  shared across all groups.
 - **Include / exclude** individual first-level items with checkboxes, so only a
   chosen subset participates in the loop.
 - Continuous looping; visibility is **left as-is** when stopped (non-prescriptive
@@ -42,9 +47,13 @@ Then in QGIS: **Plugins ▸ Manage and Install Plugins ▸ Installed** and enabl
 ## Usage
 
 1. **Plugins ▸ Layer Flick Visibility** to open the dock.
-2. Choose a **Group**; its first-level children fill the list (all checked).
-3. Uncheck anything you want to exclude, set the **Interval**, press **▶ Play**.
-4. Use **⏸ Pause / ▶ Resume**, **◀ Prev / Next ▶**, and **■ Stop** as needed.
+2. In the **Base group**, choose a group; its first-level children fill the list
+   (all checked). Uncheck anything to exclude, and set the **Interval**.
+3. *(Optional)* Press **➕ Add synced group** to add another group. Pick its group,
+   set its **Speed (× of base)** multiplier, and trim its items. The header shows
+   the resulting interval. Use **✕ Remove** to cancel an added group.
+4. Press **▶ Play**. Use **⏸ Pause / ▶ Resume**, **◀ Prev / Next ▶**, and
+   **■ Stop** as needed — they drive all groups together.
 
 ## Files
 
@@ -53,5 +62,7 @@ Then in QGIS: **Plugins ▸ Manage and Install Plugins ▸ Installed** and enabl
 | `__init__.py` | `classFactory` entry point |
 | `metadata.txt` | Plugin metadata |
 | `layer_flick_plugin.py` | Menu/toolbar action and dock lifecycle |
-| `flick_dock_widget.py` | The options panel UI and wiring |
-| `flick_controller.py` | Timer-driven visibility engine (UI-free) |
+| `flick_dock_widget.py` | The options panel: base + synced rows, transport |
+| `flick_group_widget.py` | One group's config block (group, items, timing) |
+| `flick_coordinator.py` | Single shared timer + tick-based sync across groups |
+| `flick_controller.py` | Per-group visibility state (UI-free, timer-free) |

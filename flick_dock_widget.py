@@ -1,41 +1,39 @@
-"""Dockable options panel for the Layer Flick Visibility plugin."""
+"""Dockable options panel for the Layer Flick Visibility plugin.
 
-from qgis.PyQt.QtCore import Qt
+Hosts a base group plus any number of synced groups, a shared transport row and
+an Add button. All groups are driven by a single :class:`FlickCoordinator` so
+they stay in sync; each synced group runs at an integer multiplier of the base
+interval.
+"""
+
 from qgis.PyQt.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
-    QFormLayout,
-    QComboBox,
     QPushButton,
-    QToolButton,
-    QListWidget,
-    QListWidgetItem,
-    QDoubleSpinBox,
     QLabel,
-    QGroupBox,
+    QScrollArea,
 )
-from qgis.core import QgsProject, QgsLayerTreeGroup
 from qgis.gui import QgsDockWidget
 
-from .flick_controller import FlickController, STOPPED, RUNNING, PAUSED
-
-# Role used to stash the layer-tree node object on combo/list items.
-NODE_ROLE = Qt.UserRole + 1
+from .flick_coordinator import FlickCoordinator, STOPPED, RUNNING, PAUSED
+from .flick_group_widget import FlickGroupWidget
 
 
 class FlickDockWidget(QgsDockWidget):
-    """Panel with group selection, per-item include list and transport buttons."""
+    """Panel with one base group, optional synced groups and shared transport."""
 
     def __init__(self, iface, parent=None):
         super().__init__("Layer Flick Visibility", parent)
         self.iface = iface
         self.setObjectName("LayerFlickDockWidget")
 
-        self.controller = FlickController(self)
+        self.coordinator = FlickCoordinator(self)
+        self.rows = []  # FlickGroupWidget list; rows[0] is always the base
         self._build_ui()
-        self._connect()
-        self.populate_groups()
+        self._add_base_row()
+
+        self.coordinator.state_changed.connect(self._update_buttons)
         self._update_buttons(STOPPED)
 
     # ------------------------------------------------------------------- build
@@ -43,48 +41,22 @@ class FlickDockWidget(QgsDockWidget):
         container = QWidget(self)
         root = QVBoxLayout(container)
 
-        # --- Group selection -------------------------------------------------
-        group_box = QGroupBox("Group", container)
-        gl = QVBoxLayout(group_box)
-        row = QHBoxLayout()
-        self.group_combo = QComboBox(group_box)
-        self.refresh_btn = QToolButton(group_box)
-        self.refresh_btn.setText("↻")  # refresh glyph
-        self.refresh_btn.setToolTip("Reload the list of groups from the project")
-        row.addWidget(self.group_combo, 1)
-        row.addWidget(self.refresh_btn, 0)
-        gl.addLayout(row)
-        root.addWidget(group_box)
+        # Scrollable stack of group rows
+        self.rows_container = QWidget()
+        self.rows_layout = QVBoxLayout(self.rows_container)
+        self.rows_layout.setContentsMargins(0, 0, 0, 0)
+        self.rows_layout.addStretch(1)
 
-        # --- Items / include list -------------------------------------------
-        items_box = QGroupBox("Items to cycle (first level)", container)
-        il = QVBoxLayout(items_box)
-        self.items_list = QListWidget(items_box)
-        self.items_list.setToolTip(
-            "Checked items are included in the loop; uncheck to exclude."
-        )
-        il.addWidget(self.items_list)
-        check_row = QHBoxLayout()
-        self.check_all_btn = QPushButton("Check all", items_box)
-        self.uncheck_all_btn = QPushButton("Uncheck all", items_box)
-        check_row.addWidget(self.check_all_btn)
-        check_row.addWidget(self.uncheck_all_btn)
-        check_row.addStretch(1)
-        il.addLayout(check_row)
-        root.addWidget(items_box, 1)
+        scroll = QScrollArea(container)
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(self.rows_container)
+        root.addWidget(scroll, 1)
 
-        # --- Interval --------------------------------------------------------
-        form = QFormLayout()
-        self.interval_spin = QDoubleSpinBox(container)
-        self.interval_spin.setRange(0.1, 60.0)
-        self.interval_spin.setSingleStep(0.5)
-        self.interval_spin.setDecimals(1)
-        self.interval_spin.setValue(2.0)
-        self.interval_spin.setSuffix(" s")
-        form.addRow("Interval:", self.interval_spin)
-        root.addLayout(form)
+        self.add_btn = QPushButton("➕ Add synced group", container)
+        self.add_btn.clicked.connect(self._add_synced_row)
+        root.addWidget(self.add_btn)
 
-        # --- Transport row ---------------------------------------------------
+        # Shared transport
         transport = QHBoxLayout()
         self.prev_btn = QPushButton("◀ Prev", container)
         self.play_btn = QPushButton("▶ Play", container)
@@ -96,134 +68,74 @@ class FlickDockWidget(QgsDockWidget):
             transport.addWidget(btn)
         root.addLayout(transport)
 
-        # --- Status ----------------------------------------------------------
-        self.status_label = QLabel("Stopped.", container)
-        self.status_label.setWordWrap(True)
-        root.addWidget(self.status_label)
-
-        self.setWidget(container)
-
-    def _connect(self):
-        self.refresh_btn.clicked.connect(self.populate_groups)
-        self.group_combo.currentIndexChanged.connect(self._on_group_changed)
-        self.check_all_btn.clicked.connect(lambda: self._set_all_checked(True))
-        self.uncheck_all_btn.clicked.connect(lambda: self._set_all_checked(False))
+        self.state_label = QLabel("Stopped.", container)
+        root.addWidget(self.state_label)
 
         self.play_btn.clicked.connect(self._on_play)
         self.pause_btn.clicked.connect(self._on_pause_resume)
-        self.stop_btn.clicked.connect(self.controller.stop)
-        self.prev_btn.clicked.connect(lambda: self.controller.step(-1))
-        self.next_btn.clicked.connect(lambda: self.controller.step(1))
+        self.stop_btn.clicked.connect(self.coordinator.stop)
+        self.prev_btn.clicked.connect(lambda: self.coordinator.step(-1))
+        self.next_btn.clicked.connect(lambda: self.coordinator.step(1))
 
-        self.controller.current_changed.connect(self._on_current_changed)
-        self.controller.state_changed.connect(self._update_buttons)
+        self.setWidget(container)
 
-    # ------------------------------------------------------------- populating
-    def populate_groups(self):
-        """Walk the layer tree and list every group (nested included)."""
-        self.controller.stop()
-        self.group_combo.blockSignals(True)
-        self.group_combo.clear()
+    # -------------------------------------------------------------------- rows
+    def _add_base_row(self):
+        row = FlickGroupWidget(self.iface, is_base=True)
+        row.config_changed.connect(self._refresh_headers)
+        self._insert_row(row)
+        self.rows.append(row)
 
-        root = QgsProject.instance().layerTreeRoot()
-        for group in self._iter_groups(root):
-            label = self._group_path(group, root)
-            self.group_combo.addItem(label)
-            self.group_combo.setItemData(
-                self.group_combo.count() - 1, group, NODE_ROLE
-            )
+    def _add_synced_row(self):
+        row = FlickGroupWidget(self.iface, is_base=False)
+        row.config_changed.connect(self._refresh_headers)
+        row.remove_requested.connect(self._remove_row)
+        self._insert_row(row)
+        self.rows.append(row)
+        self._refresh_headers()
 
-        self.group_combo.blockSignals(False)
-        if self.group_combo.count() == 0:
-            self.items_list.clear()
-            self.status_label.setText("No groups in this project.")
-        else:
-            self.group_combo.setCurrentIndex(0)
-            self.populate_items()
+    def _insert_row(self, row):
+        # Insert before the trailing stretch so rows stack top-down.
+        self.rows_layout.insertWidget(self.rows_layout.count() - 1, row)
 
-    def _iter_groups(self, node):
-        """Yield every QgsLayerTreeGroup below ``node`` (excluding the root)."""
-        for child in node.children():
-            if isinstance(child, QgsLayerTreeGroup):
-                yield child
-                yield from self._iter_groups(child)
-
-    def _group_path(self, group, root):
-        """Build an indented 'Parent / Child' label for a nested group."""
-        parts = []
-        node = group
-        while node is not None and node is not root:
-            parts.append(node.name())
-            node = node.parent()
-        return " / ".join(reversed(parts))
-
-    def populate_items(self):
-        """Fill the include list from the selected group's first-level children."""
-        self.items_list.clear()
-        group = self._current_group()
-        if group is None:
+    def _remove_row(self, row):
+        if row.is_base or row not in self.rows:
             return
-        try:
-            children = group.children()
-        except RuntimeError:
-            return
-        for node in children:
-            item = QListWidgetItem(node.name())
-            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setCheckState(Qt.Checked)
-            item.setData(NODE_ROLE, node)
-            self.items_list.addItem(item)
+        self.rows.remove(row)
+        self.rows_layout.removeWidget(row)
+        row.setParent(None)
+        row.deleteLater()
 
-    def _set_all_checked(self, checked):
-        state = Qt.Checked if checked else Qt.Unchecked
-        for i in range(self.items_list.count()):
-            self.items_list.item(i).setCheckState(state)
-
-    # --------------------------------------------------------------- accessors
-    def _current_group(self):
-        idx = self.group_combo.currentIndex()
-        if idx < 0:
-            return None
-        return self.group_combo.itemData(idx, NODE_ROLE)
-
-    def _included_nodes(self):
-        nodes = []
-        for i in range(self.items_list.count()):
-            item = self.items_list.item(i)
-            if item.checkState() == Qt.Checked:
-                nodes.append(item.data(NODE_ROLE))
-        return nodes
+    def _refresh_headers(self):
+        base_seconds = self.rows[0].base_interval()
+        for row in self.rows[1:]:
+            row.update_sync_header(base_seconds)
 
     # ----------------------------------------------------------------- actions
-    def _on_group_changed(self, _index):
-        self.controller.stop()
-        self.populate_items()
-
     def _on_play(self):
-        group = self._current_group()
-        if group is None:
-            self.iface.messageBar().pushWarning(
-                "Layer Flick", "Select a group first."
-            )
-            return
-        nodes = self._included_nodes()
-        if not nodes:
-            self.iface.messageBar().pushWarning(
-                "Layer Flick", "No items are checked to cycle through."
-            )
-            return
-        self.controller.start(group, nodes, self.interval_spin.value())
+        entries = []
+        for i, row in enumerate(self.rows):
+            if row.group_node() is None or not row.included_nodes():
+                label = "Base group" if row.is_base else "Group #{0}".format(i + 1)
+                self.iface.messageBar().pushWarning(
+                    "Layer Flick",
+                    "{0} ({1}) needs a group with at least one checked item."
+                    .format(label, row.display_name()),
+                )
+                return
+            row.controller.prepare(row.group_node(), row.included_nodes())
+            entries.append((row.controller, row.multiplier()))
+
+        base_seconds = self.rows[0].base_interval()
+        self.coordinator.start(base_seconds, entries)
 
     def _on_pause_resume(self):
-        if self.controller.state == RUNNING:
-            self.controller.pause()
-        elif self.controller.state == PAUSED:
-            self.controller.resume()
+        if self.coordinator.state == RUNNING:
+            self.coordinator.pause()
+        elif self.coordinator.state == PAUSED:
+            self.coordinator.resume()
 
     # ----------------------------------------------------------------- signals
-    def _on_current_changed(self, name, position, total):
-        self.status_label.setText("{} / {} — {}".format(position, total, name))
-
     def _update_buttons(self, state):
         running = state == RUNNING
         paused = state == PAUSED
@@ -234,23 +146,23 @@ class FlickDockWidget(QgsDockWidget):
         self.stop_btn.setEnabled(active)
         self.prev_btn.setEnabled(active)
         self.next_btn.setEnabled(active)
-
-        # Group / item selection is locked while a run is active.
-        self.group_combo.setEnabled(not active)
-        self.refresh_btn.setEnabled(not active)
-        self.items_list.setEnabled(not active)
-        self.check_all_btn.setEnabled(not active)
-        self.uncheck_all_btn.setEnabled(not active)
-
+        self.add_btn.setEnabled(not active)
         self.pause_btn.setText("⏸ Pause" if running else "▶ Resume")
+
+        # Group editing is locked while a run is active.
+        for row in self.rows:
+            row.set_editable(not active)
+
         if state == STOPPED:
-            self.status_label.setText("Stopped.")
+            self.state_label.setText("Stopped.")
+            for row in self.rows:
+                row.clear_status()
+        elif running:
+            self.state_label.setText("Running.")
         elif paused:
-            self.status_label.setText(
-                self.status_label.text().replace(" (paused)", "") + " (paused)"
-            )
+            self.state_label.setText("Paused.")
 
     # ------------------------------------------------------------------- close
     def closeEvent(self, event):
-        self.controller.stop()
+        self.coordinator.stop()
         super().closeEvent(event)
