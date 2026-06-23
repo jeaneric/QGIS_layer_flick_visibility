@@ -1,10 +1,6 @@
-# Layer Flick Visibility (QGIS plugin)
+# Layer Flick/Timer Visibility (QGIS plugin)
 
-Animate ("flick") through the contents of a layer **group** in the QGIS Layers
-panel. The plugin shows the first **first-level** child (a layer or a subgroup),
-waits a set interval, hides it, shows the next one, and loops continuously — a
-quick way to compare before/after imagery, design alternatives, or time
-snapshots.
+Animate ("flick") through the contents of a layer **group** in the QGIS Layers panel. The plugin shows the first **first-level** child (a layer or a subgroup), waits a set interval, hides it, shows the next one, and loops continuously — a quick way to compare before/after imagery, design alternatives, or time snapshots.
 
 ## Features
 
@@ -26,15 +22,13 @@ snapshots.
 
 ## Install
 
-Copy this folder into your QGIS profile's plugins directory so the folder name
-matches the Python package, e.g. on Windows:
+Copy this folder into your QGIS profile's plugins directory so the folder name matches the Python package, e.g. on Windows:
 
 ```
 %APPDATA%\QGIS\QGIS3\profiles\default\python\plugins\layer_flick_visibility\
 ```
 
-For live editing you can instead create a directory junction pointing at this
-repo:
+For live editing you can instead create a directory junction pointing at this repo:
 
 ```powershell
 New-Item -ItemType Junction `
@@ -42,9 +36,7 @@ New-Item -ItemType Junction `
   -Target "D:\git\03_AECOM\QGIS_layer_flick_visibility"
 ```
 
-Then in QGIS: **Plugins ▸ Manage and Install Plugins ▸ Installed** and enable
-**Layer Flick Visibility**. (This build is marked *experimental*; enable
-"Show also experimental plugins" in the manager's Settings if it is hidden.)
+Then in QGIS: **Plugins ▸ Manage and Install Plugins ▸ Installed** and enable **Layer Flick Visibility**. (This build is marked *experimental*; enable "Show also experimental plugins" in the manager's Settings if it is hidden.)
 
 ## Usage
 
