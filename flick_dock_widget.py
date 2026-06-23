@@ -6,6 +6,7 @@ they stay in sync; each synced group runs at an integer multiplier of the base
 interval.
 """
 
+from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -49,6 +50,9 @@ class FlickDockWidget(QgsDockWidget):
 
         scroll = QScrollArea(container)
         scroll.setWidgetResizable(True)
+        # Never scroll sideways: bound the content to the viewport width so long
+        # layer names wrap downward instead of triggering a horizontal scrollbar.
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         scroll.setWidget(self.rows_container)
         root.addWidget(scroll, 1)
 

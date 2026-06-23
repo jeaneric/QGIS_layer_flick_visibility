@@ -21,6 +21,7 @@ from qgis.PyQt.QtWidgets import (
     QDoubleSpinBox,
     QSpinBox,
     QLabel,
+    QSizePolicy,
 )
 from qgis.core import QgsProject, QgsLayerTreeGroup
 
@@ -104,11 +105,21 @@ class FlickGroupWidget(QGroupBox):
             form.addRow("Speed (of base):", self.multiplier_spin)
         layout.addLayout(form)
 
-        # Per-row status + per-group pause + remove
-        brow = QHBoxLayout()
+        # Per-row status on its own full-width line so a long layer name can
+        # wrap across as many lines as needed instead of overflowing sideways.
         self.status_label = QLabel("—", self)  # em dash
         self.status_label.setWordWrap(True)
-        brow.addWidget(self.status_label, 1)
+        self.status_label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self.status_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.status_label.setMinimumWidth(0)
+        # Ignore the label's own width hint so a long name can never widen the
+        # row (which, with the horizontal scrollbar off, would clip the buttons).
+        self.status_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Minimum)
+        layout.addWidget(self.status_label)
+
+        # Buttons on their own right-aligned row.
+        brow = QHBoxLayout()
+        brow.addStretch(1)
         self.group_pause_btn = QPushButton("⏸ This", self)
         self.group_pause_btn.setToolTip(
             "Pause just this group; the others keep running"
@@ -275,4 +286,29 @@ class FlickGroupWidget(QGroupBox):
 
     def _refresh_status(self):
         suffix = "   ⏸ paused" if self._paused else ""
-        self.status_label.setText(self._status_core + suffix)
+        self.status_label.setText(self._add_break_hints(self._status_core) + suffix)
+
+    @staticmethod
+    def _add_break_hints(text, max_run=12):
+        """Insert zero-width spaces so long, space-less names can still wrap.
+
+        Word wrap only breaks on real spaces, so a long token (e.g.
+        ``Very_Long_Layer_Name_2024``) keeps a wide minimum width. We add a
+        break opportunity after common separators and within any run longer
+        than ``max_run`` characters, keeping the label's minimum width small
+        without visibly changing the text.
+        """
+        zwsp = "​"
+        out = []
+        run = 0
+        for ch in text:
+            out.append(ch)
+            if ch.isspace() or ch in "/_-.":
+                out.append(zwsp)
+                run = 0
+            else:
+                run += 1
+                if run >= max_run:
+                    out.append(zwsp)
+                    run = 0
+        return "".join(out)
