@@ -52,7 +52,7 @@ class FlickDockWidget(QgsDockWidget):
         scroll.setWidgetResizable(True)
         # Never scroll sideways: bound the content to the viewport width so long
         # layer names wrap downward instead of triggering a horizontal scrollbar.
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setWidget(self.rows_container)
         root.addWidget(scroll, 1)
 

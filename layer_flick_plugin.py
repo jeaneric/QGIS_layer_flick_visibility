@@ -33,7 +33,7 @@ class LayerFlickPlugin:
     def toggle_panel(self):
         if self.dock is None:
             self.dock = FlickDockWidget(self.iface, self.iface.mainWindow())
-            self.iface.addDockWidget(Qt.RightDockWidgetArea, self.dock)
+            self.iface.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.dock)
             self.dock.show()
         else:
             self.dock.setVisible(not self.dock.isVisible())

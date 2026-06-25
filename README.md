@@ -20,6 +20,12 @@ Animate ("flick") through the contents of a layer **group** in the QGIS Layers p
   about your final state).
 - Controls live in a dockable panel, launched from the **Plugins** menu.
 
+## Compatibility
+
+Works on **QGIS 3 (Qt5)** and **QGIS 4 (Qt6)**. All Qt enums use the fully-scoped
+form (e.g. `Qt.ItemDataRole.UserRole`), which resolves on both PyQt5 (≥5.15) and
+PyQt6, per the [QGIS Qt5/Qt6 plugin migration guide](https://github.com/qgis/QGIS/wiki/Plugin-migration-to-be-compatible-with-Qt5-and-Qt6).
+
 ## Install
 
 Copy this folder into your QGIS profile's plugins directory so the folder name matches the Python package, e.g. on Windows:
@@ -37,6 +43,21 @@ New-Item -ItemType Junction `
 ```
 
 Then in QGIS: **Plugins ▸ Manage and Install Plugins ▸ Installed** and enable **Layer Flick Visibility**. (This build is marked *experimental*; enable "Show also experimental plugins" in the manager's Settings if it is hidden.)
+
+## Build / package
+
+Run `build.bat` (double-click or from a terminal) to produce an installable zip:
+
+```
+dist\layer_flick_visibility_v<version>.zip
+```
+
+`build.bat` just calls `build_plugin.py` (standard-library only — any Python 3
+works, no QGIS required). The script reads the version from `metadata.txt` and
+packages every plugin file under a single `layer_flick_visibility/` folder,
+excluding `.git`, `__pycache__`, `*.pyc`, the `dist` folder and the build
+scripts. Install the zip via **Plugins ▸ Manage and Install Plugins ▸ Install
+from ZIP**.
 
 ## Usage
 
@@ -61,6 +82,8 @@ Then in QGIS: **Plugins ▸ Manage and Install Plugins ▸ Installed** and enabl
 | `flick_group_widget.py` | One group's config block (group, items, timing) |
 | `flick_coordinator.py` | Single shared timer + tick-based sync across groups |
 | `flick_controller.py` | Per-group visibility state (UI-free, timer-free) |
+| `build_plugin.py` | Packages the plugin into `dist/*.zip` (stdlib only) |
+| `build.bat` | Windows wrapper that runs `build_plugin.py` |
 
 ## License
 

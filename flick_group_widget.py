@@ -28,7 +28,7 @@ from qgis.core import QgsProject, QgsLayerTreeGroup
 from .flick_controller import FlickController
 
 # Role used to stash the layer-tree node object on combo/list items.
-NODE_ROLE = Qt.UserRole + 1
+NODE_ROLE = Qt.ItemDataRole.UserRole + 1
 
 
 class FlickGroupWidget(QGroupBox):
@@ -109,12 +109,18 @@ class FlickGroupWidget(QGroupBox):
         # wrap across as many lines as needed instead of overflowing sideways.
         self.status_label = QLabel("—", self)  # em dash
         self.status_label.setWordWrap(True)
-        self.status_label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
-        self.status_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.status_label.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
+        )
+        self.status_label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
         self.status_label.setMinimumWidth(0)
         # Ignore the label's own width hint so a long name can never widen the
         # row (which, with the horizontal scrollbar off, would clip the buttons).
-        self.status_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Minimum)
+        self.status_label.setSizePolicy(
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Minimum
+        )
         layout.addWidget(self.status_label)
 
         # Buttons on their own right-aligned row.
@@ -195,13 +201,13 @@ class FlickGroupWidget(QGroupBox):
             return
         for node in children:
             item = QListWidgetItem(node.name())
-            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setCheckState(Qt.Checked)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Checked)
             item.setData(NODE_ROLE, node)
             self.items_list.addItem(item)
 
     def _set_all_checked(self, checked):
-        state = Qt.Checked if checked else Qt.Unchecked
+        state = Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked
         for i in range(self.items_list.count()):
             self.items_list.item(i).setCheckState(state)
 
@@ -216,7 +222,7 @@ class FlickGroupWidget(QGroupBox):
         nodes = []
         for i in range(self.items_list.count()):
             item = self.items_list.item(i)
-            if item.checkState() == Qt.Checked:
+            if item.checkState() == Qt.CheckState.Checked:
                 nodes.append(item.data(NODE_ROLE))
         return nodes
 
